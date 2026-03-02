@@ -1,5 +1,5 @@
-// PlayerController.cs
 using UnityEngine;
+using UnityEngine.EventSystems;   // For UI click detection
 
 public class PlayerController : MonoBehaviour
 {
@@ -20,14 +20,15 @@ public class PlayerController : MonoBehaviour
     public float currentHealth;
     public HealthBar3D healthBar;
 
-    [Header("Attack Attributes")]
+    [Header("Attack Properties")]
     public float baseDamage = 20f;
     public float currentDamage;
-    public float baseAttackCooldown = 0.5f;
+    public float baseAttackCooldown = 0.5f;   // Base attack interval (seconds)
     public float currentAttackCooldown;
     private float lastAttackTime;
+    private bool isAttacking = false;          // Whether attack button is being held
 
-    // Cached animation parameters
+    // Animator parameter cache
     private float lastMoveX;
     private float lastMoveY;
     private bool lastIsMoving;
@@ -69,10 +70,12 @@ public class PlayerController : MonoBehaviour
         _rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         _rb.isKinematic = false;
 
+        // Initialize animator parameter cache
         lastMoveX = _anim.GetFloat("MoveX");
         lastMoveY = _anim.GetFloat("MoveY");
         lastIsMoving = _anim.GetBool("IsMoving");
 
+        // Initialize attack related
         currentHealth = maxHealth;
         currentDamage = baseDamage;
         currentAttackCooldown = baseAttackCooldown;
@@ -95,21 +98,29 @@ public class PlayerController : MonoBehaviour
     {
         if (GameManager.Instance != null && GameManager.Instance.isGameOver) return;
 
+        // Movement input
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
-
         Vector2 input = Vector2.ClampMagnitude(new Vector2(h, v), 1f);
-
         UpdateMoveDirection(input);
         UpdateAnimatorParams(input);
 
-        if (Input.GetMouseButtonDown(0) && Time.time > lastAttackTime + currentAttackCooldown)
+        // Attack input detection (holding left mouse button, not over UI)
+        bool attackPressed = Input.GetMouseButton(0) && !IsPointerOverUI();
+        if (attackPressed != isAttacking)
         {
-            _anim.SetTrigger("Attack");
+            isAttacking = attackPressed;
+            _anim.SetBool("IsAttacking", isAttacking);
+        }
+
+        // If holding attack and cooldown is complete, fire a bullet
+        if (isAttacking && Time.time > lastAttackTime + currentAttackCooldown)
+        {
             _bulletShoot.LaunchBullet(currentDamage);
             lastAttackTime = Time.time;
         }
 
+        // Camera rotation (right mouse button)
         if (enableRightClickRotate && Input.GetMouseButton(1))
         {
             RotateCameraAndPlayer();
@@ -120,6 +131,12 @@ public class PlayerController : MonoBehaviour
     {
         if (GameManager.Instance != null && GameManager.Instance.isGameOver) return;
         UpdateRigidbodyMovement();
+    }
+
+    // Check if mouse is over UI
+    private bool IsPointerOverUI()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
     }
 
     private void UpdateMoveDirection(Vector2 input)
@@ -181,8 +198,10 @@ public class PlayerController : MonoBehaviour
         _anim.SetFloat("MoveX", 0);
         _anim.SetFloat("MoveY", 0);
         _anim.SetBool("IsMoving", false);
+        _anim.SetBool("IsAttacking", false);
         lastMoveX = lastMoveY = 0;
         lastIsMoving = false;
+        isAttacking = false;
         _moveDirection = Vector3.zero;
         _rb.velocity = Vector3.zero;
     }
@@ -209,6 +228,8 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log("Player died!");
             _anim.SetTrigger("Die");
+            isAttacking = false;
+            _anim.SetBool("IsAttacking", false);
             Invoke(nameof(HandleDeath), 2f);
         }
     }
@@ -220,7 +241,7 @@ public class PlayerController : MonoBehaviour
             GameManager.Instance.PlayerDied();
     }
 
-    // Kill rewards
+    // Kill reward methods
     public void Heal(float amount)
     {
         currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
@@ -237,13 +258,14 @@ public class PlayerController : MonoBehaviour
         currentAttackCooldown = Mathf.Max(0.1f, currentAttackCooldown - bonus);
     }
 
-    // Reset player for new game
+    // Reset player (for new game)
     public void ResetPlayer()
     {
         currentHealth = maxHealth;
         currentDamage = baseDamage;
         currentAttackCooldown = baseAttackCooldown;
         lastAttackTime = -currentAttackCooldown;
+        isAttacking = false;
         if (healthBar != null) healthBar.UpdateHealthDisplay(currentHealth);
         enabled = true;
         ResetAnimatorParams();

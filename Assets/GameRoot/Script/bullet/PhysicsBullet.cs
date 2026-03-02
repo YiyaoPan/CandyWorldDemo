@@ -1,4 +1,3 @@
-// PhysicsBullet.cs
 using UnityEngine;
 
 public class PhysicsBullet : MonoBehaviour

@@ -1,14 +1,13 @@
-// BulletLauncher.cs
 using UnityEngine;
 
 public class BulletLauncher : MonoBehaviour
 {
-    [Header("Launch Settings")]
+    [Header("Fire Configuration")]
     public GameObject physicsBulletPrefab;
     public Transform firePoint;
     public LayerMask hitLayer;
 
-    [Header("Launch Angle (Debug)")]
+    [Header("Fire Angle Offset (Debug)")]
     public float horizontalAngleOffset = 0f;
     public float verticalAngleOffset = 0f;
 

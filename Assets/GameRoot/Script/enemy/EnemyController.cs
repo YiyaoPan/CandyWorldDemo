@@ -1,9 +1,8 @@
-// EnemyController.cs
 using UnityEngine;
 
 public class EnemyController : MonoBehaviour
 {
-    [Header("Basic Attributes")]
+    [Header("Base Properties")]
     public float maxHealth = 100f;
     private float currentHealth;
     public float moveSpeed = 3f;
@@ -91,6 +90,7 @@ public class EnemyController : MonoBehaviour
 
         if (player == null)
         {
+            // No player target, enter wandering state
             Wander();
             return;
         }
@@ -180,6 +180,7 @@ public class EnemyController : MonoBehaviour
 
     void Wander()
     {
+        // Periodically update wander target
         if (Time.time > nextWanderTime)
         {
             Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
@@ -292,6 +293,7 @@ public class EnemyController : MonoBehaviour
 
     private void DestroyEnemy()
     {
+        // Notify GameManager
         if (GameManager.Instance != null)
             GameManager.Instance.OnEnemyKilled(this);
 

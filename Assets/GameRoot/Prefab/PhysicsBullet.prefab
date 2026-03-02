@@ -182,5 +182,5 @@ MonoBehaviour:
   lifeTime: 2
   hitLayer:
     serializedVersion: 2
-    m_Bits: 23
+    m_Bits: 791
   damage: 20
