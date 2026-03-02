@@ -1,3 +1,7 @@
+// ====================================================
+// MainScript.cs
+// ====================================================
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,17 +11,18 @@ public class MainScript : MonoBehaviour
 {
     void Start()
     {
-        // Initialize main menu logic if needed
+        // Initialization code (if needed)
     }
 
     void Update()
     {
-        // Main menu per-frame updates if needed
+        // Per-frame update (if needed)
     }
 
+    // Called when the Start Game button is pressed
     public void StartGameBtn()
     {
-        // Load the game scene
+        // Load the game scene (tmpScene)
         SceneManager.LoadScene("tmpScene");
     }
 }

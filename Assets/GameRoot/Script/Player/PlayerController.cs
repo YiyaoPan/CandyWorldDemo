@@ -1,51 +1,53 @@
+// ====================================================
+// PlayerController.cs
+// ====================================================
+
 using UnityEngine;
-using UnityEngine.EventSystems;   // For UI click detection
+using UnityEngine.EventSystems;
 
 public class PlayerController : MonoBehaviour
 {
-    private Animator _anim;
-    private Rigidbody _rb;
-    private BulletLauncher _bulletShoot;
+    private Animator _anim;                     // Reference to the Animator component
+    private Rigidbody _rb;                       // Reference to the Rigidbody component
+    private BulletLauncher _bulletShoot;          // Reference to the BulletLauncher component
 
     [Header("Movement Settings")]
-    public float moveSpeed = 5f;
-    public float moveSmoothness = 0.1f;
+    public float moveSpeed = 5f;                  // Base movement speed
+    public float moveSmoothness = 0.1f;           // Smoothing factor for velocity changes
 
-    [Header("Camera Rotation Settings")]
-    public float rotateSensitivity = 100f;
-    public bool enableRightClickRotate = true;
+    [Header("Rotation Settings")]
+    public float rotateSensitivity = 100f;        // Mouse sensitivity for rotation
+    public bool enableRightClickRotate = true;    // Whether right-click rotates camera/player
 
     [Header("Player Health")]
-    public float maxHealth = 100f;
-    public float currentHealth;
-    public HealthBar3D healthBar;
+    public float maxHealth = 100f;                 // Maximum health
+    public float currentHealth;                    // Current health
+    public HealthBar3D healthBar;                   // Reference to the 3D health bar
 
-    [Header("Attack Properties")]
-    public float baseDamage = 20f;
-    public float currentDamage;
-    public float baseAttackCooldown = 0.5f;   // Base attack interval (seconds)
-    public float currentAttackCooldown;
-    private float lastAttackTime;
-    private bool isAttacking = false;          // Whether attack button is being held
+    [Header("Attack Attributes")]
+    public float baseDamage = 20f;                  // Base damage per bullet
+    public float currentDamage;                     // Current damage (after bonuses)
+    public float baseAttackCooldown = 0.5f;         // Base time between shots
+    public float currentAttackCooldown;             // Current cooldown (after bonuses)
+    private float lastAttackTime;                    // Time of last attack
+    private bool isAttacking = false;                 // Whether attack button is held
 
-    // Animator parameter cache
-    private float lastMoveX;
-    private float lastMoveY;
-    private bool lastIsMoving;
+    private float lastMoveX;                         // Last MoveX animator parameter value
+    private float lastMoveY;                         // Last MoveY animator parameter value
+    private bool lastIsMoving;                        // Last IsMoving animator parameter value
 
-    private Vector3 _moveDirection;
-    private Vector3 _targetVelocity;
+    private Vector3 _moveDirection;                   // Desired movement direction in world space
+    private Vector3 _targetVelocity;                   // Desired velocity
 
-    // Properties for UI
-    public float CurrentDamage => currentDamage;
-    public float CurrentAttackCooldown => currentAttackCooldown;
+    public float CurrentDamage => currentDamage;              // Public getter
+    public float CurrentAttackCooldown => currentAttackCooldown; // Public getter
 
     void Awake()
     {
         _anim = GetComponent<Animator>();
         if (_anim == null)
         {
-            Debug.LogError("Character missing Animator component!", this);
+            Debug.LogError("Player missing Animator component!", this);
             enabled = false;
             return;
         }
@@ -53,7 +55,7 @@ public class PlayerController : MonoBehaviour
         _rb = GetComponent<Rigidbody>();
         if (_rb == null)
         {
-            Debug.LogError("Character missing Rigidbody component! Please add a rigidbody before running", this);
+            Debug.LogError("Player missing Rigidbody component! Please add a Rigidbody before running", this);
             enabled = false;
             return;
         }
@@ -61,25 +63,24 @@ public class PlayerController : MonoBehaviour
         _bulletShoot = GetComponent<BulletLauncher>();
         if (_bulletShoot == null)
         {
-            Debug.LogError("Character missing BulletLauncher component! Please add bullet launcher component before running", this);
+            Debug.LogError("Player missing BulletLauncher component! Please add bullet launch component before running", this);
             enabled = false;
             return;
         }
 
-        _rb.freezeRotation = true;
-        _rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-        _rb.isKinematic = false;
+        _rb.freezeRotation = true;                             // Prevent physics rotation
+        _rb.collisionDetectionMode = CollisionDetectionMode.Continuous; // Better collision detection
+        _rb.isKinematic = false;                               // Ensure Rigidbody is dynamic
 
-        // Initialize animator parameter cache
+        // Store initial animator parameter values
         lastMoveX = _anim.GetFloat("MoveX");
         lastMoveY = _anim.GetFloat("MoveY");
         lastIsMoving = _anim.GetBool("IsMoving");
 
-        // Initialize attack related
         currentHealth = maxHealth;
         currentDamage = baseDamage;
         currentAttackCooldown = baseAttackCooldown;
-        lastAttackTime = -currentAttackCooldown;
+        lastAttackTime = -currentAttackCooldown;               // Allow immediate first attack
     }
 
     void Start()
@@ -98,14 +99,15 @@ public class PlayerController : MonoBehaviour
     {
         if (GameManager.Instance != null && GameManager.Instance.isGameOver) return;
 
-        // Movement input
+        // Get input axes
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
-        Vector2 input = Vector2.ClampMagnitude(new Vector2(h, v), 1f);
+        Vector2 input = Vector2.ClampMagnitude(new Vector2(h, v), 1f); // Normalize diagonal movement
+
         UpdateMoveDirection(input);
         UpdateAnimatorParams(input);
 
-        // Attack input detection (holding left mouse button, not over UI)
+        // Check for attack input (left mouse button) and ensure not over UI
         bool attackPressed = Input.GetMouseButton(0) && !IsPointerOverUI();
         if (attackPressed != isAttacking)
         {
@@ -113,14 +115,14 @@ public class PlayerController : MonoBehaviour
             _anim.SetBool("IsAttacking", isAttacking);
         }
 
-        // If holding attack and cooldown is complete, fire a bullet
+        // If attacking and cooldown passed, launch a bullet
         if (isAttacking && Time.time > lastAttackTime + currentAttackCooldown)
         {
             _bulletShoot.LaunchBullet(currentDamage);
             lastAttackTime = Time.time;
         }
 
-        // Camera rotation (right mouse button)
+        // Right-click rotation
         if (enableRightClickRotate && Input.GetMouseButton(1))
         {
             RotateCameraAndPlayer();
@@ -133,34 +135,37 @@ public class PlayerController : MonoBehaviour
         UpdateRigidbodyMovement();
     }
 
-    // Check if mouse is over UI
+    // Check if the mouse is over a UI element
     private bool IsPointerOverUI()
     {
         return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
     }
 
+    // Converts input to world-space movement direction based on player's current rotation
     private void UpdateMoveDirection(Vector2 input)
     {
         Vector3 localMoveDir = new Vector3(input.x, 0, input.y);
-        _moveDirection = transform.TransformDirection(localMoveDir);
+        _moveDirection = transform.TransformDirection(localMoveDir); // Transform local to world
         _moveDirection.y = 0;
         _moveDirection = _moveDirection.normalized;
 
         _targetVelocity = _moveDirection * moveSpeed;
     }
 
+    // Smoothly updates Rigidbody velocity towards target velocity
     private void UpdateRigidbodyMovement()
     {
         Vector3 smoothVelocity = Vector3.Lerp(_rb.velocity, _targetVelocity, moveSmoothness / Time.fixedDeltaTime);
-        smoothVelocity.y = _rb.velocity.y;
+        smoothVelocity.y = _rb.velocity.y;                           // Preserve vertical velocity (gravity)
         _rb.velocity = smoothVelocity;
 
-        if (_moveDirection.sqrMagnitude < 0.01f)
+        if (_moveDirection.sqrMagnitude < 0.01f)                     // If no movement input, stop horizontal movement
         {
             _rb.velocity = new Vector3(0, _rb.velocity.y, 0);
         }
     }
 
+    // Updates animator parameters with input values, only when changed
     private void UpdateAnimatorParams(Vector2 input)
     {
         if (Mathf.Abs(input.x - lastMoveX) > 0.01f)
@@ -181,18 +186,20 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Rotates the player and camera horizontally based on mouse movement
     private void RotateCameraAndPlayer()
     {
         float mouseX = Input.GetAxis("Mouse X") * rotateSensitivity * Time.deltaTime;
-        transform.Rotate(Vector3.up, mouseX);
+        transform.Rotate(Vector3.up, mouseX);                         // Rotate player
 
         CameraFollow cameraFollow = Camera.main.GetComponent<CameraFollow>();
         if (cameraFollow != null)
         {
-            cameraFollow.RotateAroundTarget(mouseX);
+            cameraFollow.RotateAroundTarget(mouseX);                 // Rotate camera around player
         }
     }
 
+    // Resets animator parameters and movement (used when restarting)
     public void ResetAnimatorParams()
     {
         _anim.SetFloat("MoveX", 0);
@@ -206,14 +213,16 @@ public class PlayerController : MonoBehaviour
         _rb.velocity = Vector3.zero;
     }
 
+    // Prevents sticking to slopes by zeroing vertical velocity if ground contact is high
     private void OnCollisionStay(Collision collision)
     {
-        if (collision.contacts[0].normal.y > 0.5f)
+        if (collision.contacts[0].normal.y > 0.5f)   // If collision normal is mostly upward (ground)
         {
             _rb.velocity = new Vector3(_rb.velocity.x, 0, _rb.velocity.z);
         }
     }
 
+    // Called when player takes damage
     public void TakeDamage(float damage)
     {
         currentHealth = Mathf.Clamp(currentHealth - damage, 0, maxHealth);
@@ -230,10 +239,11 @@ public class PlayerController : MonoBehaviour
             _anim.SetTrigger("Die");
             isAttacking = false;
             _anim.SetBool("IsAttacking", false);
-            Invoke(nameof(HandleDeath), 2f);
+            Invoke(nameof(HandleDeath), 2f);       // Delay before handling death
         }
     }
 
+    // Handles player death (disables script and notifies GameManager)
     public void HandleDeath()
     {
         enabled = false;
@@ -241,24 +251,26 @@ public class PlayerController : MonoBehaviour
             GameManager.Instance.PlayerDied();
     }
 
-    // Kill reward methods
+    // Heals the player by a certain amount
     public void Heal(float amount)
     {
         currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
         if (healthBar != null) healthBar.UpdateHealthDisplay(currentHealth);
     }
 
+    // Adds a bonus to damage
     public void AddDamageBonus(float bonus)
     {
         currentDamage += bonus;
     }
 
+    // Adds a bonus to attack speed (reduces cooldown)
     public void AddAttackSpeedBonus(float bonus)
     {
         currentAttackCooldown = Mathf.Max(0.1f, currentAttackCooldown - bonus);
     }
 
-    // Reset player (for new game)
+    // Resets player to initial state (used when restarting)
     public void ResetPlayer()
     {
         currentHealth = maxHealth;
